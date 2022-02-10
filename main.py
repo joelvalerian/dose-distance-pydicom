@@ -14,89 +14,141 @@ class DoseDistanceExtractor:
 
     def getpath_RTDOSE(self):
         filename = tk.filedialog.askopenfilename(filetypes=[('DICOM files', '*.dcm')])
-        self.filepath_RTDOSE.set(filename)
+        self.rtdose_filepath.set(filename)
+        self.new_rtdose.set(True)
 
     def getpath_RTSTRUCT(self):
         filename = tk.filedialog.askopenfilename(filetypes=[('DICOM files', '*.dcm')])
-        self.filepath_RTSTRUCT.set(filename)
+        self.rtstruct_filepath.set(filename)
+        self.new_rtstruct.set(True)
+
+
+    def plot(self):
+        if self.is_plotted.get() == False:
+            try:
+                self.source_ax1_plot = self.source_ax1.imshow(self.rtdose[self.source_slice_selected.get()])
+                self.source_ax2_plot = self.source_ax2.imshow(self.rtdose[self.source_slice_selected.get()])
+                self.target_ax1_plot = self.target_ax1.imshow(self.rtdose[self.target_slice_selected.get()])
+                self.target_ax2_plot = self.target_ax2.imshow(self.rtdose[self.target_slice_selected.get()])
+
+                self.source_fig1_canvas = FigureCanvasTkAgg(self.source_fig1, self.plot_window)
+                self.source_fig1_canvas.get_tk_widget().grid(column=0, row=0)
+                self.source_fig2_canvas = FigureCanvasTkAgg(self.source_fig2, self.plot_window)
+                self.source_fig2_canvas.get_tk_widget().grid(column=0, row=1)
+                self.target_fig1_canvas = FigureCanvasTkAgg(self.target_fig1, self.plot_window)
+                self.target_fig1_canvas.get_tk_widget().grid(column=1, row=0)
+                self.target_fig2_canvas = FigureCanvasTkAgg(self.target_fig2, self.plot_window)
+                self.target_fig2_canvas.get_tk_widget().grid(column=1, row=1)
+
+                self.source_fig1_divider = make_axes_locatable(self.source_ax1)
+                self.source_fig1_cb = self.source_fig1.colorbar(self.source_ax1_plot,
+                    cax=self.source_fig1_divider.append_axes('right', size='5%', pad=0.05))
+                self.source_fig2_divider = make_axes_locatable(self.source_ax2)
+                self.source_fig2_cb = self.source_fig2.colorbar(self.source_ax2_plot,
+                    cax=self.source_fig2_divider.append_axes('right', size='5%', pad=0.05))
+                self.target_fig1_divider = make_axes_locatable(self.target_ax1)
+                self.target_fig1_cb = self.target_fig1.colorbar(self.target_ax1_plot,
+                    cax=self.target_fig1_divider.append_axes('right', size='5%', pad=0.05))
+                self.target_fig2_divider = make_axes_locatable(self.target_ax2)
+                self.target_fig2_cb = self.target_fig2.colorbar(self.target_ax2_plot,
+                    cax=self.target_fig2_divider.append_axes('right', size='5%', pad=0.05))
+
+                self.plot_status.set('Plotted!')
+                self.is_plotted.set(True)
+            except AttributeError:
+                self.plot_status.set('No DICOM imported!')
+        else:
+            self.plot_status.set('Already plotted!')
 
     def import_DICOM(self):
-        try:
-            RTDOSE = pydicom.dcmread(self.rtdose_filepath.get())
-            RTSTRUCT = pydicom.dcmread(self.rtstruct_filepath.get())
-            z_spacing = abs(RTSTRUCT.ROIContourSequence[0].ContourSequence[1].ContourData[2] - RTSTRUCT.ROIContourSequence[0].ContourSequence[0].ContourData[2])
-            yx_spacing = [float(i) for i in RTDOSE.PixelSpacing]
-            structure_list = [RTSTRUCT.StructureSetROISequence[i].ROIName for i in range(len(RTSTRUCT.StructureSetROISequence))]
+        if self.new_rtdose.get() == True and self.new_rtstruct.get() == True:
+            try:
+                self.RTDOSE = pydicom.dcmread(self.rtdose_filepath.get())
+                self.RTSTRUCT = pydicom.dcmread(self.rtstruct_filepath.get())
 
-            self.patient_id = RTDOSE.PatientID
-            self.rtdose = RTDOSE.pixel_array * RTDOSE.DoseGridScaling
-            self.rtdose_dimension = self.rtdose.shape
-            self.rtdose_spacing = tuple([z_spacing, *yx_spacing])
-            self.rtdose_origin = tuple([*RTDOSE.ImagePositionPatient])
-            self.structure_list = structure_list
+                z_spacing = abs(self.RTSTRUCT.ROIContourSequence[0].ContourSequence[1].ContourData[2] - self.RTSTRUCT.ROIContourSequence[0].ContourSequence[0].ContourData[2])
+                yx_spacing = [float(i) for i in self.RTDOSE.PixelSpacing]
+                structure_list = [self.RTSTRUCT.StructureSetROISequence[i].ROIName for i in range(len(self.RTSTRUCT.StructureSetROISequence))]
 
-            self.patient_id_str.set(self.patient_id)
-            self.rtdose_dimension_str.set(self.rtdose_dimension)
-            self.rtdose_spacing_str.set(self.rtdose_spacing)
-            self.rtdose_origin_str.set(f'{self.rtdose_origin[2]:.1f}, {self.rtdose_origin[1]:.1f}, {self.rtdose_origin[0]:.1f}')
-            self.structure_list_var.set([str(i) + '. ' + structure_list[i] for i in range(len(structure_list))])
+                self.patient_id = self.RTDOSE.PatientID
+                self.rtdose = self.RTDOSE.pixel_array * self.RTDOSE.DoseGridScaling
+                self.rtdose_dimension = self.rtdose.shape
+                self.rtdose_spacing = tuple([z_spacing, *yx_spacing])
+                self.rtdose_origin = tuple([*self.RTDOSE.ImagePositionPatient])
+                self.structure_list = structure_list
 
-            self.update_combobox(self.importer_source_selection, structure_list)
-            self.update_combobox(self.importer_target_selection, structure_list)
+                self.patient_id_str.set(self.patient_id)
+                self.rtdose_dimension_str.set(self.rtdose_dimension)
+                self.rtdose_spacing_str.set(self.rtdose_spacing)
+                self.rtdose_origin_str.set(f'{self.rtdose_origin[2]:.1f}, {self.rtdose_origin[1]:.1f}, {self.rtdose_origin[0]:.1f}')
+                self.structure_list_var.set([str(i) + '. ' + structure_list[i] for i in range(len(structure_list))])
 
-            self.import_status.set('Import success!')
-            
-        except FileNotFoundError:
-            self.import_status.set('File(s) not found!')
+                self.importer_slice_slider1['to'] = self.rtdose.shape[0] - 1
+                self.importer_slice_slider2['to'] = self.rtdose.shape[0] - 1
+                
+                self.update_combobox(self.extractor_source_selection, structure_list)
+                self.update_combobox(self.extractor_target_selection, structure_list)
+                self.plot()
 
-        except pydicom.errors.InvalidDicomError:
-            self.import_status.set('Invalid DICOM file(s)!')
+                self.import_status.set('Import success!')
+                self.new_rtdose.set(False)
+                self.new_rtstruct.set(False)
+                
+            except FileNotFoundError:
+                self.import_status.set('File(s) not found!')
 
-        # except Exception:
-        #     self.import_status.set('Unknown error!')
+            except pydicom.errors.InvalidDicomError:
+                self.import_status.set('Invalid DICOM file(s)!')
+
+            except Exception:
+                self.import_status.set('Unknown error!')
+        else:
+            self.import_status.set('Already imported!')
+
+    def ExtractContour(self, index, target_contour):
+        for contour in self.RTSTRUCT.ROIContourSequence[index].ContourSequence:
+            for i in range(0, len(contour.ContourData), 3):
+                x = round((contour.ContourData[i]-self.rtdose_origin[0])/self.rtdose_spacing[2])
+                y = round((contour.ContourData[i+1]-self.rtdose_origin[1])/self.rtdose_spacing[1])
+                z = round((contour.ContourData[i+2]-self.rtdose_origin[2])/self.rtdose_spacing[0])
+                target_contour.append([z, y, x])
+
+    def FillContour(self, target_contour, target_volume):
+        target_contour_slice = list(dict.fromkeys([contour[0] for contour in target_contour]))
+        print(f'Thickness: {len(target_contour_slice)} slices')
+        for target in target_contour_slice:
+            SliceContour = []
+            for z, y, x in target_contour:
+                if z == target:
+                    SliceContour.append([x, y])
+                    SliceContour = np.asarray(SliceContour)
+                    cv.fillPoly(target_volume[target], [SliceContour], 255)
+
+    def ConvertCoordinate(self, z, y, x):
+        return [self.rtdose_origin[2] + (z*self.rtdose_spacing[0]), self.rtdose_origin[1] + (y*self.rtdose_spacing[1]), self.rtdose_origin[0] + (x*self.rtdose_spacing[2])]
+
+    def EuclideanDistance(self, A, B):
+        A = np.array(A)
+        B = np.array(B)
+        return np.sqrt(np.sum(np.square(A-B)))
+
+    def GetRealCoordinateDose(self, Coordinate, Volume, Dose):
+        for z in range(Volume.shape[0]):
+            for y in range(Volume.shape[1]):
+                for x in range(Volume.shape[2]):
+                    if Volume[z][y][x] == 255:
+                        Coordinate.append([*ConvertCoordinate(z, y, x), Dose[z][y][x]])
 
     def update_combobox(self, combobox, values):
         combobox['values'] = [*values]
 
     def source_on_selected(self, event):
         self.source_selected.set(event.widget.get())
+        self.source_index = self.structure_list.index(self.source_selected.get())
 
     def target_on_selected(self, event):
         self.target_selected.set(event.widget.get())
-
-    def plot(self):
-        try:
-            self.source_ax1_plot = self.source_ax1.imshow(self.rtdose[120])
-            self.source_ax2_plot = self.source_ax2.imshow(self.rtdose[70])
-            self.target_ax1_plot = self.target_ax1.imshow(self.rtdose[100])
-            self.target_ax2_plot = self.target_ax2.imshow(self.rtdose[120])
-
-            self.source_fig1_canvas = FigureCanvasTkAgg(self.source_fig1, self.plot_window)
-            self.source_fig1_canvas.get_tk_widget().grid(column=0, row=0)
-            self.source_fig2_canvas = FigureCanvasTkAgg(self.source_fig2, self.plot_window)
-            self.source_fig2_canvas.get_tk_widget().grid(column=0, row=1)
-            self.target_fig1_canvas = FigureCanvasTkAgg(self.target_fig1, self.plot_window)
-            self.target_fig1_canvas.get_tk_widget().grid(column=1, row=0)
-            self.target_fig2_canvas = FigureCanvasTkAgg(self.target_fig2, self.plot_window)
-            self.target_fig2_canvas.get_tk_widget().grid(column=1, row=1)
-
-            self.source_fig1_divider = make_axes_locatable(self.source_ax1)
-            self.source_fig1_cb = self.source_fig1.colorbar(self.source_ax1_plot,
-                cax=self.source_fig1_divider.append_axes('right', size='5%', pad=0.05))
-            self.source_fig2_divider = make_axes_locatable(self.source_ax2)
-            self.source_fig2_cb = self.source_fig2.colorbar(self.source_ax2_plot,
-                cax=self.source_fig2_divider.append_axes('right', size='5%', pad=0.05))
-            self.target_fig1_divider = make_axes_locatable(self.target_ax1)
-            self.target_fig1_cb = self.target_fig1.colorbar(self.target_ax1_plot,
-                cax=self.target_fig1_divider.append_axes('right', size='5%', pad=0.05))
-            self.target_fig2_divider = make_axes_locatable(self.target_ax2)
-            self.target_fig2_cb = self.target_fig2.colorbar(self.target_ax2_plot,
-                cax=self.target_fig2_divider.append_axes('right', size='5%', pad=0.05))
-
-            self.plot_status.set('Plotted!')
-            print(np.argmax(self.rtdose[120]))
-        except AttributeError:
-            self.plot_status.set('No DICOM imported!')
+        self.target_index = self.structure_list.index(self.target_selected.get())
 
     def hover_source_ax1(self, event):
         if event.inaxes == self.source_ax1:
@@ -105,7 +157,7 @@ class DoseDistanceExtractor:
             try:
                 self.plot_coord.set(str([round(x, 3), round(y, 4)]))
                 self.plot_index.set(str([i, j]))
-                self.plot_value.set(str(round(self.rtdose[50][j][i], 3)))
+                self.plot_value.set(str(round(self.rtdose[self.source_slice_selected.get()][j][i], 3)))
             except AttributeError:
                 self.plot_status.set('No DICOM imported!')
         else:
@@ -120,7 +172,7 @@ class DoseDistanceExtractor:
             try:
                 self.plot_coord.set(str([round(x, 3), round(y, 4)]))
                 self.plot_index.set(str([i, j]))
-                self.plot_value.set(str(round(self.rtdose[70][j][i], 3)))
+                self.plot_value.set(str(round(self.rtdose[self.source_slice_selected.get()][j][i], 3)))
             except AttributeError:
                 self.plot_status.set('No DICOM imported!')
         else:
@@ -135,7 +187,7 @@ class DoseDistanceExtractor:
             try:
                 self.plot_coord.set(str([round(x, 3), round(y, 4)]))
                 self.plot_index.set(str([i, j]))
-                self.plot_value.set(str(round(self.rtdose[100][j][i], 3)))
+                self.plot_value.set(str(round(self.rtdose[self.target_slice_selected.get()][j][i], 3)))
             except AttributeError:
                 self.plot_status.set('No DICOM imported!')
         else:
@@ -150,13 +202,64 @@ class DoseDistanceExtractor:
             try:
                 self.plot_coord.set(str([round(x, 3), round(y, 4)]))
                 self.plot_index.set(str([i, j]))
-                self.plot_value.set(str(round(self.rtdose[120][j][i], 3)))
+                self.plot_value.set(str(round(self.rtdose[self.target_slice_selected.get()][j][i], 3)))
             except AttributeError:
                 self.plot_status.set('No DICOM imported!')
         else:
             self.plot_coord.set(str(''))
             self.plot_index.set(str(''))
             self.plot_value.set(str(''))
+
+    def change_source_slice(self, event):
+        try:
+            self.source_fig1_cb.remove()
+            self.source_fig2_cb.remove()
+            self.source_ax1_plot = self.source_ax1.imshow(self.rtdose[int(event)])
+            self.source_ax2_plot = self.source_ax2.imshow(self.rtdose[int(event)])
+
+            self.source_fig1_canvas = FigureCanvasTkAgg(self.source_fig1, self.plot_window)
+            self.source_fig1_canvas.get_tk_widget().grid(column=0, row=0)
+            self.source_fig2_canvas = FigureCanvasTkAgg(self.source_fig2, self.plot_window)
+            self.source_fig2_canvas.get_tk_widget().grid(column=0, row=1)
+
+            self.source_fig1_divider = make_axes_locatable(self.source_ax1)
+            self.source_fig1_cb = self.source_fig1.colorbar(self.source_ax1_plot,
+                cax=self.source_fig1_divider.append_axes('right', size='5%', pad=0.05))
+            self.source_fig2_divider = make_axes_locatable(self.source_ax2)
+            self.source_fig2_cb = self.source_fig2.colorbar(self.source_ax2_plot,
+                cax=self.source_fig2_divider.append_axes('right', size='5%', pad=0.05))
+
+
+            self.source_slice_selected.set(event)
+
+            self.plot_status.set('Replotted!')
+        except AttributeError:
+            pass
+
+    def change_target_slice(self, event):
+        try:
+            self.target_fig1_cb.remove()
+            self.target_fig2_cb.remove()
+            self.target_ax1_plot = self.target_ax1.imshow(self.rtdose[int(event)])
+            self.target_ax2_plot = self.target_ax2.imshow(self.rtdose[int(event)])
+
+            self.target_fig1_canvas = FigureCanvasTkAgg(self.target_fig1, self.plot_window)
+            self.target_fig1_canvas.get_tk_widget().grid(column=1, row=0)
+            self.target_fig2_canvas = FigureCanvasTkAgg(self.target_fig2, self.plot_window)
+            self.target_fig2_canvas.get_tk_widget().grid(column=1, row=1)
+
+            self.target_fig1_divider = make_axes_locatable(self.target_ax1)
+            self.target_fig1_cb = self.target_fig1.colorbar(self.target_ax1_plot,
+                cax=self.target_fig1_divider.append_axes('right', size='5%', pad=0.05))
+            self.target_fig2_divider = make_axes_locatable(self.target_ax2)
+            self.target_fig2_cb = self.target_fig2.colorbar(self.target_ax2_plot,
+                cax=self.target_fig2_divider.append_axes('right', size='5%', pad=0.05))
+
+            self.target_slice_selected.set(event)
+
+            self.plot_status.set('Replotteddd!')
+        except AttributeError:
+            pass
 
     def __init__(self, root):
         self.root = root
@@ -171,20 +274,26 @@ class DoseDistanceExtractor:
         self.body.grid(column=0, row=1)
 
         self.header = tk.Frame(self.body)
-        self.header.grid(column=0, row=0)
+        self.header.grid(column=0, row=0, sticky='nsew')
+        self.header.columnconfigure(0, weight=1)
+        self.header.columnconfigure(1, weight=1)
+        self.header.columnconfigure(2, weight=1)
         self.content = tk.Frame(self.body)
         self.content.grid(column=0, row=1)
 
         tk.Label(self.header, text='Importer').grid(column=0, row=0)
         self.importer = tk.Frame(self.header)
-        self.importer.grid(column=0, row=1)
+        self.importer.grid(column=0, row=1, sticky='n')
 
+        self.new_rtdose = tk.BooleanVar(value=True)
+        self.new_rtstruct = tk.BooleanVar(value=True)
+        self.is_plotted = tk.BooleanVar(value=False)
         self.rtdose_filepath = tk.StringVar(value='C:/Users/ivand/OneDrive/Desktop/RD1.dcm')
         self.rtstruct_filepath = tk.StringVar(value='C:/Users/ivand/OneDrive/Desktop/RS1.dcm')
         self.import_status = tk.StringVar(value='No files imported')
         self.plot_status = tk.StringVar(value='No plot yet')
-        self.source_selected = tk.StringVar(value='No source selected')
-        self.target_selected = tk.StringVar(value='No target selected')
+        self.source_slice_selected = tk.IntVar()
+        self.target_slice_selected = tk.IntVar()
         self.structure_list = []
 
         tk.Label(self.importer, text='RTDOSE').grid(column=0, row=0, sticky='e')
@@ -195,7 +304,9 @@ class DoseDistanceExtractor:
         self.importer_rtstruct_filepath = tk.Entry(self.importer, textvariable=self.rtstruct_filepath)
         self.importer_rtstruct_filepath.grid(column=1, row=1, sticky='w')
         self.importer_import_status = tk.Label(self.importer, textvariable=self.import_status)
-        self.importer_import_status.grid(column=1, row=2)
+        self.importer_import_status.grid(column=0, row=2)
+        self.importer_plot_status = tk.Label(self.importer, textvariable=self.plot_status)
+        self.importer_plot_status.grid(column=1, row=2)
         
         self.importer_rtdose_button = tk.Button(self.importer, text='...', command=self.getpath_RTDOSE)
         self.importer_rtdose_button.grid(column=2, row=0)
@@ -204,29 +315,25 @@ class DoseDistanceExtractor:
         self.importer_import_button = tk.Button(self.importer, text='Import', command=self.import_DICOM)
         self.importer_import_button.grid(column=2, row=2, sticky='n')
 
-        tk.Label(self.importer, text='Contour Selection').grid(column=1, row=3)
-        tk.Label(self.importer, text='Source').grid(column=0, row=4)
-        tk.Label(self.importer, text='Target').grid(column=0, row=5)
-        
-        self.importer_source_selection = ttk.Combobox(self.importer, values=self.structure_list)
-        self.importer_source_selection.grid(column=1, row=4)
-        self.importer_source_selection.bind('<<ComboboxSelected>>', self.source_on_selected)
-        self.importer_target_selection = ttk.Combobox(self.importer, values=self.structure_list)
-        self.importer_target_selection.grid(column=1, row=5)
-        self.importer_target_selection.bind('<<ComboboxSelected>>', self.target_on_selected)
-        self.importer_plot_status = tk.Label(self.importer, textvariable=self.plot_status)
-        self.importer_plot_status.grid(column=1, row=6)
+        tk.Label(self.importer, text='Slice Selection').grid(column=1, row=3)
+        tk.Label(self.importer, text='<- Viewer 1 || Viewer 2 ->').grid(column=1, row=4, sticky='s')
 
-        self.importer_source_selected = tk.Label(self.importer, textvariable=self.source_selected)
-        self.importer_source_selected.grid(column=2, row=4)
-        self.importer_target_selected = tk.Label(self.importer, textvariable=self.target_selected)
-        self.importer_target_selected.grid(column=2, row=5)
-        self.importer_plot_button = tk.Button(self.importer, text='Plot', command=self.plot)
-        self.importer_plot_button.grid(column=2, row=6)
+        self.importer_slice_slider1 = tk.Scale(self.importer,
+            from_=0,
+            to=100,
+            orient='horizontal',
+            command=self.change_source_slice)
+        self.importer_slice_slider1.grid(column=0, row=4, sticky='s')
+        self.importer_slice_slider2 = tk.Scale(self.importer,
+            from_=0,
+            to=100,
+            orient='horizontal',
+            command=self.change_target_slice)
+        self.importer_slice_slider2.grid(column=2, row=4, sticky='s')
 
         tk.Label(self.header, text='Patient Information').grid(column=1, row=0)
         self.information = tk.Frame(self.header)
-        self.information.grid(column=1, row=1)
+        self.information.grid(column=1, row=1, sticky='n')
 
         self.patient_id_str = tk.StringVar()
         self.rtdose_dimension_str = tk.StringVar()
@@ -254,6 +361,34 @@ class DoseDistanceExtractor:
         self.structure_list_scrollbar.grid(column=1, row=4, sticky='nse')
         self.information_structure_list['yscrollcommand'] = self.structure_list_scrollbar.set
         
+        tk.Label(self.header, text='Extractor').grid(column=2, row=0)
+        self.extractor = tk.Frame(self.header)
+        self.extractor.grid(column=2, row=1, sticky='n')
+
+        self.source_selected = tk.StringVar(value='No source selected')
+        self.target_selected = tk.StringVar(value='No target selected')
+        self.extract_status = tk.StringVar(value='No files extracted')
+
+        tk.Label(self.extractor, text='Contour Selection').grid(column=1, row=0)
+        tk.Label(self.extractor, text='Source').grid(column=0, row=1)
+        tk.Label(self.extractor, text='Target').grid(column=0, row=2)
+        
+        self.extractor_source_selection = ttk.Combobox(self.extractor, values=self.structure_list)
+        self.extractor_source_selection.grid(column=1, row=1)
+        self.extractor_source_selection.bind('<<ComboboxSelected>>', self.source_on_selected)
+        self.extractor_target_selection = ttk.Combobox(self.extractor, values=self.structure_list)
+        self.extractor_target_selection.grid(column=1, row=2)
+        self.extractor_target_selection.bind('<<ComboboxSelected>>', self.target_on_selected)
+        self.extractor_plot_status = tk.Label(self.extractor, textvariable=self.extract_status)
+        self.extractor_plot_status.grid(column=1, row=3)
+
+        self.extractor_source_selected = tk.Label(self.extractor, textvariable=self.source_selected)
+        self.extractor_source_selected.grid(column=2, row=1)
+        self.extractor_target_selected = tk.Label(self.extractor, textvariable=self.target_selected)
+        self.extractor_target_selected.grid(column=2, row=2)
+        self.extractor_plot_button = tk.Button(self.extractor, text='Extract')
+        self.extractor_plot_button.grid(column=2, row=3)
+
         ttk.Label(self.content, text='Dose Distribution').grid(column=0, row=0)
         self.legend_window = tk.Frame(self.content)
         self.legend_window.grid(column=0, row=1)
@@ -277,11 +412,11 @@ class DoseDistanceExtractor:
         self.source_fig1_canvas = FigureCanvasTkAgg(self.source_fig1, self.plot_window)
         self.source_fig1_canvas.get_tk_widget().grid(column=0, row=0)
         self.source_fig2_canvas = FigureCanvasTkAgg(self.source_fig2, self.plot_window)
-        self.source_fig2_canvas.get_tk_widget().grid(column=0, row=1)
+        self.source_fig2_canvas.get_tk_widget().grid(column=0, row=1, pady=(0, 20))
         self.target_fig1_canvas = FigureCanvasTkAgg(self.target_fig1, self.plot_window)
         self.target_fig1_canvas.get_tk_widget().grid(column=1, row=0)
         self.target_fig2_canvas = FigureCanvasTkAgg(self.target_fig2, self.plot_window)
-        self.target_fig2_canvas.get_tk_widget().grid(column=1, row=1)
+        self.target_fig2_canvas.get_tk_widget().grid(column=1, row=1, pady=(0, 20))
 
         tk.Label(self.legend_window, text='Coordinates [X, Y]', width=20).grid(column=0, row=0)
         tk.Label(self.legend_window, text='Indexes [i, j]', width=20).grid(column=1, row=0)
